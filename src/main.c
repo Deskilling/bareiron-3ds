@@ -505,12 +505,12 @@ void handlePacket (int client_fd, int length, int packet_id, int state) {
 
 }
 
-#ifdef __3DS__
-int bareiron_main() {
-#else
-int main () {
+int main() {
+  #ifdef __3DS__
+ 	gfxInitDefault();
+	consoleInit(GFX_TOP, NULL);
+  #endif
 
-#endif
   #ifdef _WIN32 //initialize windows socket
     WSADATA wsa;
       if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
@@ -754,6 +754,11 @@ int main () {
 
   close(server_fd);
 
+
+  #ifdef __3DS__
+ 	gfxExit();
+  #endif
+
   #ifdef _WIN32 //cleanup windows socket
     WSACleanup();
   #endif
@@ -811,17 +816,4 @@ void app_main () {
   wifi_init();
 }
 
-#endif
-
-#ifdef __3DS__
-int main()
-{
-	gfxInitDefault();
-	consoleInit(GFX_TOP, NULL);
-
-	bareiron_main();
-
-	gfxExit();
-	return 0;
-}
 #endif
