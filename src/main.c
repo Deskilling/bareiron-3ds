@@ -31,6 +31,15 @@
   #include <time.h>
 #endif
 
+#ifdef __3DS__
+  #include <3ds.h>
+  #include <malloc.h>
+
+  #define SOC_ALIGN       0x1000
+  #define SOC_BUFFERSIZE  0x100000
+  static u32 *SOC_buffer = NULL;
+#endif
+
 #include "globals.h"
 #include "tools.h"
 #include "varnum.h"
@@ -443,7 +452,7 @@ void handlePacket (int client_fd, int length, int packet_id, int state) {
     case 0x34:
       if (state == STATE_PLAY) cs_setHeldItem(client_fd);
       break;
-	
+
     case 0x3C:
       if (state == STATE_PLAY) cs_swingArm(client_fd);
       break;
@@ -496,7 +505,12 @@ void handlePacket (int client_fd, int length, int packet_id, int state) {
 
 }
 
+#ifdef __3DS__
+int bareiron_main() {
+#else
 int main () {
+
+#endif
   #ifdef _WIN32 //initialize windows socket
     WSADATA wsa;
       if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
@@ -531,6 +545,14 @@ int main () {
     player_data[i].client_fd = -1;
   }
 
+  #ifdef __3DS__
+  SOC_buffer = (u32*)memalign(SOC_ALIGN, SOC_BUFFERSIZE);
+  if ((socInit(SOC_buffer, SOC_BUFFERSIZE)) != 0) {
+      perror("socInit failed");
+      return (EXIT_FAILURE);
+  }
+  #endif
+
   // Create server TCP socket
   int server_fd, opt = 1;
   struct sockaddr_in server_addr, client_addr;
@@ -546,7 +568,7 @@ int main () {
       (const char*)&opt, sizeof(opt)) < 0) {
 #else
   if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
-#endif    
+#endif
     perror("socket options failed");
     exit(EXIT_FAILURE);
   }
@@ -592,6 +614,17 @@ int main () {
    * client connection.
    */
   while (true) {
+    #ifdef __3DS__
+        gspWaitForVBlank();
+        gfxSwapBuffers();
+        hidScanInput();
+
+        u32 kDown = hidKeysDown();
+        if (kDown & KEY_START) {
+            break;
+        }
+    #endif
+
     // Check if it's time to yield to the idle task
     task_yield();
 
@@ -720,13 +753,13 @@ int main () {
   }
 
   close(server_fd);
- 
+
   #ifdef _WIN32 //cleanup windows socket
     WSACleanup();
   #endif
 
   printf("Server closed.\n");
-
+  return 0;
 }
 
 #ifdef ESP_PLATFORM
@@ -778,4 +811,17 @@ void app_main () {
   wifi_init();
 }
 
+#endif
+
+#ifdef __3DS__
+int main()
+{
+	gfxInitDefault();
+	consoleInit(GFX_TOP, NULL);
+
+	bareiron_main();
+
+	gfxExit();
+	return 0;
+}
 #endif
