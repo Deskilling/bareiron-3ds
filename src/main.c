@@ -509,6 +509,7 @@ int main() {
   #ifdef __3DS__
  	gfxInitDefault();
 	consoleInit(GFX_TOP, NULL);
+	atexit(gfxExit);
   #endif
 
   #ifdef _WIN32 //initialize windows socket
@@ -547,9 +548,14 @@ int main() {
 
   #ifdef __3DS__
   SOC_buffer = (u32*)memalign(SOC_ALIGN, SOC_BUFFERSIZE);
+  if(SOC_buffer == NULL) {
+    perror("failed to allocate SOC_buffer\n");
+	return(EXIT_FAILURE);
+  }
+
   if ((socInit(SOC_buffer, SOC_BUFFERSIZE)) != 0) {
-      perror("socInit failed");
-      return (EXIT_FAILURE);
+    perror("socInit failed");
+    return (EXIT_FAILURE);
   }
   #endif
 
@@ -614,17 +620,6 @@ int main() {
    * client connection.
    */
   while (true) {
-    #ifdef __3DS__
-        gspWaitForVBlank();
-        gfxSwapBuffers();
-        hidScanInput();
-
-        u32 kDown = hidKeysDown();
-        if (kDown & KEY_START) {
-            break;
-        }
-    #endif
-
     // Check if it's time to yield to the idle task
     task_yield();
 
@@ -657,6 +652,10 @@ int main() {
     if (time_since_last_tick > TIME_BETWEEN_TICKS) {
       handleServerTick(time_since_last_tick);
       last_tick_time = get_program_time();
+      #ifdef __3DS__
+          hidScanInput();
+          if (hidKeysDown() & KEY_START) break;
+      #endif
     }
 
     // Handle this individual client
@@ -753,11 +752,6 @@ int main() {
   }
 
   close(server_fd);
-
-
-  #ifdef __3DS__
- 	gfxExit();
-  #endif
 
   #ifdef _WIN32 //cleanup windows socket
     WSACleanup();
